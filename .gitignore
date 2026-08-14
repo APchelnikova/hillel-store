@@ -1,0 +1,14 @@
+# IDE
+.idea/
+
+# Node.js
+**/node_modules/
+
+# Environment variables
+.env
+
+# macOS
+.DS_Store
+
+# SSL certificates
+*.pem
