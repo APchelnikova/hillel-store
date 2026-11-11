@@ -6,13 +6,18 @@ const OrderItem = require("./orderItemModel");
 
 const STATUSES = ["pending", "paid", "shipped", "cancelled"];
 
-// sequelize.define(name, columns, options) tells Sequelize to create/manage a table
-// called "Orders" (pluralized automatically) with the columns below.
+// sequelize.define(name, columns, options) tells Sequelize to manage the table
+// "orders" (set with tableName below) with the columns below.
 const Order = sequelize.define("Order", {
+    id: {
+        type: DataTypes.UUID,
+        defaultValue: DataTypes.UUIDV4,
+        primaryKey: true
+    },
     userId: {
-        type: DataTypes.INTEGER,
+        type: DataTypes.UUID,
         allowNull: false,                         // same as Mongoose's "required: true"
-        references: { model: "Users", key: "id" } // same as Mongoose's "ref: 'User'"
+        references: { model: "users", key: "id" } // same as Mongoose's "ref: 'User'"
     },
     total: {
         type: DataTypes.DECIMAL(10, 2),
@@ -30,7 +35,9 @@ const Order = sequelize.define("Order", {
         validate: { isIn: [STATUSES] }            // Sequelize doesn't check ENUM values by itself
     }
 }, {
-    timestamps: true                              // same as Mongoose's "timestamps: true"
+    tableName: "orders",
+    timestamps: true,                             // same as Mongoose's "timestamps: true"
+    underscored: true                             // userId -> user_id, createdAt -> created_at
 });
 
 // Associations describe how tables are linked (Mongoose used "ref" + populate() for this).

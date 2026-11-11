@@ -2,18 +2,23 @@ const { DataTypes } = require("sequelize");
 const { sequelize } = require("../config/db");
 
 // In Mongoose, order items were an array of sub-documents inside each order.
-// SQL tables can't store arrays, so each item becomes its own row in the
-// "OrderItems" table and points to its order with "orderId".
+// SQL tables can't store arrays, so each item is its own row in the
+// "order_items" table and points to its order with "order_id".
 const OrderItem = sequelize.define("OrderItem", {
+    id: {
+        type: DataTypes.UUID,
+        defaultValue: DataTypes.UUIDV4,
+        primaryKey: true
+    },
     orderId: {
-        type: DataTypes.INTEGER,
+        type: DataTypes.UUID,
         allowNull: false,
-        references: { model: "Orders", key: "id" }   // foreign key -> Orders.id
+        references: { model: "orders", key: "id" }   // foreign key -> orders.id
     },
     productId: {
-        type: DataTypes.INTEGER,
+        type: DataTypes.UUID,
         allowNull: false,
-        references: { model: "Products", key: "id" } // same as Mongoose's "ref: 'Products'"
+        references: { model: "products", key: "id" } // same as Mongoose's "ref: 'Products'"
     },
     quantity: {
         type: DataTypes.INTEGER,
@@ -29,9 +34,9 @@ const OrderItem = sequelize.define("OrderItem", {
         }
     }
 }, {
-    // The Mongoose sub-schema had no timestamps, so we turn them off here too.
-    // ("_id: false" has no equivalent: every SQL row still gets its own "id".)
-    timestamps: false
+    tableName: "order_items",
+    timestamps: true,               // the table has created_at / updated_at
+    underscored: true               // orderId -> order_id, priceAtPurchase -> price_at_purchase, ...
 });
 
 module.exports = OrderItem;

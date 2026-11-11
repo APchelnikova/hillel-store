@@ -1,14 +1,20 @@
 const { DataTypes } = require("sequelize");
 const { sequelize } = require("../config/db");
+const User = require("./userModel");
 
 const CATEGORIES = ["electronics", "books", "clothing", "food"];
 
-// sequelize.define(name, columns, options) tells Sequelize to create/manage a table
-// called "Products" (pluralized automatically) with the columns below.
+// sequelize.define(name, columns, options) tells Sequelize to manage the table
+// "products" (set with tableName below) with the columns below.
 const Product = sequelize.define("Product", {
+    id: {
+        type: DataTypes.UUID,           // char(36) in the table
+        defaultValue: DataTypes.UUIDV4, // Sequelize generates a random id for new rows
+        primaryKey: true
+    },
     name: {
-        type: DataTypes.STRING,
-        allowNull: false            // same as Mongoose's "required: true"
+        type: DataTypes.TEXT,
+        allowNull: false                // same as Mongoose's "required: true"
     },
     price: {
         // DECIMAL(10, 2) = up to 10 digits, 2 of them after the dot. Exact, so good for money.
@@ -30,11 +36,26 @@ const Product = sequelize.define("Product", {
         validate: { isIn: [CATEGORIES] }
     },
     stock: {
-        type: DataTypes.INTEGER,    // whole numbers only
+        type: DataTypes.INTEGER,        // whole numbers only
         allowNull: false
+    },
+    description: {
+        type: DataTypes.TEXT            // optional, can be empty
+    },
+    ownerId: {
+        // The user (admin) who created the product. Column "owner_id" in the table.
+        type: DataTypes.UUID,
+        allowNull: false,
+        references: { model: "users", key: "id" }
     }
 }, {
-    timestamps: true                // same as Mongoose's "timestamps: true"
+    tableName: "products",
+    timestamps: true,                   // same as Mongoose's "timestamps: true"
+    underscored: true                   // ownerId -> owner_id, createdAt -> created_at
 });
+
+// One user owns many products; each product belongs to one user.
+User.hasMany(Product, { foreignKey: "ownerId" });
+Product.belongsTo(User, { foreignKey: "ownerId", as: "owner" });
 
 module.exports = Product;

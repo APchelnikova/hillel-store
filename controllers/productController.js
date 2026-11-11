@@ -1,10 +1,11 @@
 const Product = require('../models/productModel');
+const ProductAttribute = require('../models/productAttributeModel');
 
 const productsCache = new Map();
 const CACHE_TTL = 30 * 1000;
 
 // Fields a client is allowed to set (so req.body can't overwrite id, createdAt, etc.)
-const PRODUCT_FIELDS = ['name', 'price', 'category', 'stock'];
+const PRODUCT_FIELDS = ['name', 'price', 'category', 'stock', 'description'];
 
 const clearProductsCache = () => {
     productsCache.clear();
@@ -33,7 +34,7 @@ const getProducts = async (req, res) => {
         where,
         offset: (page - 1) * limit,
         limit,
-        order: [['id', 'ASC']], // stable order, so pages don't overlap
+        order: [['createdAt', 'ASC'], ['id', 'ASC']], // stable order, so pages don't overlap
     });
 
     const result = {
@@ -52,8 +53,15 @@ const getProducts = async (req, res) => {
 };
 
 const createProduct = async (req, res) => {
-    const { name, price, category, stock } = req.body;
-    const newProduct = await Product.create({ name, price, category, stock });
+    const { name, price, category, stock, description } = req.body;
+    const newProduct = await Product.create({
+        name,
+        price,
+        category,
+        stock,
+        description,
+        ownerId: req.user.id, // the logged-in admin who creates the product
+    });
 
     clearProductsCache();
 
@@ -61,7 +69,10 @@ const createProduct = async (req, res) => {
 };
 
 const getProductById = async (req, res) => {
-    const product = await Product.findByPk(req.params.id);
+    // Also load the product's attributes (rows from product_attributes)
+    const product = await Product.findByPk(req.params.id, {
+        include: [{ model: ProductAttribute, as: 'attributes' }],
+    });
     if (!product) return res.status(404).json({ message: 'Product not found' });
 
     return res.json(product);

@@ -2,12 +2,19 @@ const { DataTypes } = require("sequelize");
 const bcrypt = require("bcrypt");
 const { sequelize } = require("../config/db");
 
-// sequelize.define(name, columns, options) tells Sequelize to create/manage a table
-// called "Users" (pluralized automatically) with the columns below.
-// Sequelize also adds an auto-increment "id" primary key (Mongoose's "_id").
+// sequelize.define(name, columns, options) tells Sequelize to manage the table
+// "users" (set with tableName below) with the columns below.
 const User = sequelize.define("User", {
+    id: {
+        // The table uses UUIDs (char(36)) instead of auto-increment numbers.
+        // UUIDV4 makes Sequelize generate a new random id for every new user
+        // (like Mongoose generating "_id" automatically).
+        type: DataTypes.UUID,
+        defaultValue: DataTypes.UUIDV4,
+        primaryKey: true
+    },
     name: {
-        type: DataTypes.STRING,
+        type: DataTypes.TEXT,
         allowNull: false        // same as Mongoose's "required: true"
     },
     email: {
@@ -21,7 +28,7 @@ const User = sequelize.define("User", {
         }
     },
     password: {
-        type: DataTypes.STRING,
+        type: DataTypes.TEXT,
         allowNull: false,
         validate: {
             len: [8, 255]       // same as Mongoose's "minlength: 8"
@@ -29,9 +36,18 @@ const User = sequelize.define("User", {
     },
     role: {
         type: DataTypes.STRING  // optional field, so allowNull stays true (the default)
+    },
+    settings: {
+        // JSON column: you can save a plain JS object here, e.g. { theme: "dark" }
+        type: DataTypes.JSON
     }
 }, {
-    timestamps: true            // same as Mongoose's "timestamps: true" (adds createdAt / updatedAt)
+    tableName: "users",         // use the existing table name as is
+    timestamps: true,           // same as Mongoose's "timestamps: true" (createdAt / updatedAt)
+    underscored: true,          // createdAt -> created_at, updatedAt -> updated_at in the table
+    // "Soft delete": user.destroy() doesn't remove the row, it only fills "deleted_at".
+    // Such users are then skipped by findAll(), findOne(), findByPk(), etc.
+    paranoid: true
 });
 
 // Hooks are Sequelize's version of Mongoose middleware.
