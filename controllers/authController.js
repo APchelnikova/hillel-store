@@ -1,5 +1,6 @@
 const User = require("../models/userModel");
 const RefreshToken = require("../models/refreshTokenModel");
+const { Op } = require("sequelize");
 const crypto = require("crypto");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
@@ -16,13 +17,13 @@ const REFRESH_COOKIE_OPTIONS = {
 
 const generateTokens = async (user) => {
     const accessToken = jwt.sign(
-        { id: user._id, role: user.role },
+        { id: user.id, role: user.role },
         config.jwtSecret,
         { expiresIn: config.jwtExpiresIn }
     );
 
     const refreshToken = jwt.sign(
-        { id: user._id, jti: crypto.randomUUID() },
+        { id: user.id, jti: crypto.randomUUID() },
         config.jwtRefreshSecret,
         { expiresIn: config.jwtRefreshExpiresIn }
     );
@@ -32,8 +33,13 @@ const generateTokens = async (user) => {
 
     await RefreshToken.create({
         token: refreshToken,
-        user: user._id,
+        userId: user.id,
         expiresAt,
+    });
+
+    // MySQL has no TTL index like MongoDB, so clean up this user's expired tokens here
+    await RefreshToken.destroy({
+        where: { userId: user.id, expiresAt: { [Op.lt]: new Date() } },
     });
 
     return { accessToken, refreshToken, expiresAt };
@@ -61,9 +67,10 @@ exports.register = async (req, res) => {
         });
     }
 
-    const normalizedEmail = email.toLowerCase();
+    const normalizedEmail = email.trim().toLowerCase();
 
-    const existingUser = await User.findOne({ email: normalizedEmail });
+    // In Sequelize the filter goes inside "where"
+    const existingUser = await User.findOne({ where: { email: normalizedEmail } });
 
     if (existingUser) {
         return res.status(409).json({
@@ -71,17 +78,15 @@ exports.register = async (req, res) => {
         });
     }
 
-    const user = new User({
+    const user = await User.create({
         name,
         email: normalizedEmail,
         password,
     });
 
-    await user.save();
-
     return res.status(201).json({
         user: {
-            id: user._id,
+            id: user.id,
             name: user.name,
             email: user.email,
         },
@@ -91,7 +96,13 @@ exports.register = async (req, res) => {
 exports.login = async (req, res) => {
     const { email, password } = req.body;
 
-    const user = await User.findOne({ email: email?.toLowerCase() });
+    if (!email || !password) {
+        return res.status(400).json({
+            message: "Email and password are required",
+        });
+    }
+
+    const user = await User.findOne({ where: { email: email.trim().toLowerCase() } });
 
     if (!user) {
         return res.status(401).json({
@@ -116,7 +127,7 @@ exports.login = async (req, res) => {
     return res.status(200).json({
         accessToken,
         user: {
-            id: user._id,
+            id: user.id,
             name: user.name,
             email: user.email,
             role: user.role,
@@ -138,15 +149,15 @@ exports.refresh = async (req, res) => {
         return res.status(401).json({ message: "Invalid or expired refresh token" });
     }
 
-    const storedToken = await RefreshToken.findOne({ token });
+    const storedToken = await RefreshToken.findOne({ where: { token } });
 
     if (!storedToken) {
         return res.status(401).json({ message: "Refresh token not recognized" });
     }
 
-    await RefreshToken.deleteOne({ _id: storedToken._id });
+    await storedToken.destroy();
 
-    const user = await User.findById(decoded.id);
+    const user = await User.findByPk(decoded.id);
 
     if (!user) {
         return res.status(401).json({ message: "User no longer exists" });
@@ -162,7 +173,7 @@ exports.logout = async (req, res) => {
     const token = req.cookies?.[REFRESH_COOKIE_NAME];
 
     if (token) {
-        await RefreshToken.deleteOne({ token });
+        await RefreshToken.destroy({ where: { token } });
     }
 
     res.clearCookie(REFRESH_COOKIE_NAME, REFRESH_COOKIE_OPTIONS);

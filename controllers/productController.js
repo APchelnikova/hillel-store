@@ -3,6 +3,9 @@ const Product = require('../models/productModel');
 const productsCache = new Map();
 const CACHE_TTL = 30 * 1000;
 
+// Fields a client is allowed to set (so req.body can't overwrite id, createdAt, etc.)
+const PRODUCT_FIELDS = ['name', 'price', 'category', 'stock'];
+
 const clearProductsCache = () => {
     productsCache.clear();
 };
@@ -12,7 +15,7 @@ const getProducts = async (req, res) => {
     const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 10, 1), 100);
     const { category } = req.query;
 
-    const filter = category ? { category } : {};
+    const where = category ? { category } : {};
     const cacheKey = JSON.stringify({ page, limit, category: category || null });
 
     const now = Date.now();
@@ -24,10 +27,14 @@ const getProducts = async (req, res) => {
         return res.json(cached.data);
     }
 
-    const [products, total] = await Promise.all([
-        Product.find(filter).skip((page - 1) * limit).limit(limit),
-        Product.countDocuments(filter),
-    ]);
+    // findAndCountAll = find() + countDocuments() in one call.
+    // offset/limit are Sequelize's version of skip()/limit().
+    const { rows: products, count: total } = await Product.findAndCountAll({
+        where,
+        offset: (page - 1) * limit,
+        limit,
+        order: [['id', 'ASC']], // stable order, so pages don't overlap
+    });
 
     const result = {
         products,
@@ -46,8 +53,7 @@ const getProducts = async (req, res) => {
 
 const createProduct = async (req, res) => {
     const { name, price, category, stock } = req.body;
-    const newProduct = new Product({ name, price, category, stock });
-    await newProduct.save();
+    const newProduct = await Product.create({ name, price, category, stock });
 
     clearProductsCache();
 
@@ -55,24 +61,28 @@ const createProduct = async (req, res) => {
 };
 
 const getProductById = async (req, res) => {
-    const product = await Product.findById(req.params.id);
+    const product = await Product.findByPk(req.params.id);
     if (!product) return res.status(404).json({ message: 'Product not found' });
 
     return res.json(product);
 };
 
 const updateProduct = async (req, res) => {
-    const updatedProduct = await Product.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    if (!updatedProduct) return res.status(404).json({ message: 'Product not found' });
+    const product = await Product.findByPk(req.params.id);
+    if (!product) return res.status(404).json({ message: 'Product not found' });
+
+    await product.update(req.body, { fields: PRODUCT_FIELDS });
 
     clearProductsCache();
 
-    return res.json(updatedProduct);
+    return res.json(product);
 };
 
 const deleteProduct = async (req, res) => {
-    const deletedProduct = await Product.findByIdAndDelete(req.params.id);
-    if (!deletedProduct) return res.status(404).json({ message: 'Product not found' });
+    const product = await Product.findByPk(req.params.id);
+    if (!product) return res.status(404).json({ message: 'Product not found' });
+
+    await product.destroy();
 
     clearProductsCache();
 

@@ -1,7 +1,15 @@
 const User = require('../models/userModel');
 
+// Sequelize's version of Mongoose's .select("-password")
+const WITHOUT_PASSWORD = { attributes: { exclude: ['password'] } };
+
+const toSafeUser = (user) => {
+    const { password: _password, ...safeUser } = user.toJSON();
+    return safeUser;
+};
+
 const getUsers = async (req, res) => {
-    const users = await User.find().select("-password");
+    const users = await User.findAll(WITHOUT_PASSWORD);
     return res.status(200).json(users);
 };
 
@@ -12,21 +20,19 @@ const createUser = async (req, res) => {
         return res.status(400).json({ message: "Name, email and password are required" });
     }
 
-    const existingUser = await User.findOne({ email: email.toLowerCase() });
+    const existingUser = await User.findOne({ where: { email: email.trim().toLowerCase() } });
 
     if (existingUser) {
         return res.status(409).json({ message: "A user with this email already exists" });
     }
 
-    const newUser = new User({ name, email, password, role });
-    await newUser.save();
+    const newUser = await User.create({ name, email, password, role });
 
-    const { password: _password, ...safeUser } = newUser.toObject();
-    return res.status(201).json(safeUser);
+    return res.status(201).json(toSafeUser(newUser));
 };
 
 const getUserById = async (req, res) => {
-    const user = await User.findById(req.params.id).select("-password");
+    const user = await User.findByPk(req.params.id, WITHOUT_PASSWORD);
     if (!user) return res.status(404).json({ message: "User not found" });
     return res.json(user);
 };
@@ -34,22 +40,25 @@ const getUserById = async (req, res) => {
 const updateUser = async (req, res) => {
     const { name, email, password } = req.body;
 
-    const user = await User.findById(req.params.id);
+    const user = await User.findByPk(req.params.id);
     if (!user) return res.status(404).json({ message: "User not found" });
 
     if (name !== undefined) user.name = name;
     if (email !== undefined) user.email = email;
     if (password !== undefined) user.password = password;
 
+    // save() runs the "beforeSave" hook, so a new password gets hashed
     await user.save();
 
-    const { password: _password, ...safeUser } = user.toObject();
-    return res.json(safeUser);
+    return res.json(toSafeUser(user));
 };
 
 const deleteUser = async (req, res) => {
-    const deletedUser = await User.findByIdAndDelete(req.params.id);
-    if (!deletedUser) return res.status(404).json({ message: "User not found" });
+    const user = await User.findByPk(req.params.id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    await user.destroy();
+
     return res.json({ message: "User deleted" });
 };
 

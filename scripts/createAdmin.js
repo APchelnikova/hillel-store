@@ -1,10 +1,11 @@
 require("dotenv").config();
-const mongoose = require("mongoose");
+const { connectMySQL, sequelize } = require("../config/db");
 const User = require("../models/userModel");
 
 const createAdmin = async () => {
     try {
-        await mongoose.connect(process.env.MONGODB_URI);
+        // Connects and creates the Users table if it doesn't exist yet
+        await connectMySQL();
 
         const name = process.argv[4] || process.env.ADMIN_NAME;
         const email = process.argv[2] || process.env.ADMIN_EMAIL;
@@ -15,7 +16,7 @@ const createAdmin = async () => {
             return;
         }
 
-        const existingAdmin = await User.findOne({ email });
+        const existingAdmin = await User.findOne({ where: { email: email.trim().toLowerCase() } });
 
         if (existingAdmin) {
             console.error("A user with this email already exists");
@@ -33,7 +34,7 @@ const createAdmin = async () => {
     } catch (error) {
         console.error("Error:", error.message);
     } finally {
-        await mongoose.disconnect();
+        await sequelize.close();
     }
 };
 

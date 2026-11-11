@@ -1,6 +1,6 @@
 require('dotenv').config();
 const config = require("./config/config");
-const connectDB = require("./config/db");
+const { connectDB, connectMySQL } = require("./config/db");
 const express = require("express");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
@@ -10,8 +10,6 @@ const userRoutes = require("./routes/userRoutes");
 const productRoutes = require("./routes/productRoutes");
 const authRoutes = require("./routes/authRoutes");
 const orderRoutes = require("./routes/orderRoutes");
-
-connectDB();
 
 const app = express();
 app.use(express.json());
@@ -30,6 +28,14 @@ app.use(notFound);
 
 const PORT = config.port || 5000;
 
-app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-});
+// Connect to the databases (and create MySQL tables) before accepting requests
+const startServer = async () => {
+    await connectDB();
+    await connectMySQL();
+
+    app.listen(PORT, () => {
+        console.log(`Server running on http://localhost:${PORT}`);
+    });
+};
+
+startServer();
