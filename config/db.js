@@ -15,6 +15,7 @@ const sequelize = new Sequelize(
     }
 );
 
+// MongoDB is used only for analytics (see middleware/analytics.js)
 const connectDB = async () => {
     try {
         await mongoose.connect(config.mongoURI);
@@ -30,12 +31,6 @@ const connectMySQL = async () => {
     try {
         await sequelize.authenticate();
         console.log("✅ MySQL connected");
-
-        // sync() creates a table for every model that was require()'d before this call,
-        // if that table doesn't exist yet (CREATE TABLE IF NOT EXISTS).
-        // It does NOT change existing tables. While developing you can use:
-        //   sync({ alter: true }) - updates tables to match the models
-        //   sync({ force: true }) - drops and recreates all tables (deletes all data!)
         await sequelize.sync();
         console.log("✅ MySQL tables synced");
     } catch (error) {

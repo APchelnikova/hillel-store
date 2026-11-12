@@ -14,7 +14,8 @@ const Order = sequelize.define("Order", {
         defaultValue: DataTypes.UUIDV4,
         primaryKey: true
     },
-    userId: {
+    customerId: {
+        // The user who placed the order. Column "customer_id" in the table.
         type: DataTypes.UUID,
         allowNull: false,                         // same as Mongoose's "required: true"
         references: { model: "users", key: "id" } // same as Mongoose's "ref: 'User'"
@@ -37,7 +38,7 @@ const Order = sequelize.define("Order", {
 }, {
     tableName: "orders",
     timestamps: true,                             // same as Mongoose's "timestamps: true"
-    underscored: true                             // userId -> user_id, createdAt -> created_at
+    underscored: true                             // customerId -> customer_id, createdAt -> created_at
 });
 
 // Associations describe how tables are linked (Mongoose used "ref" + populate() for this).
@@ -47,8 +48,8 @@ const Order = sequelize.define("Order", {
 // One user has many orders; each order belongs to one user.
 // onDelete: "RESTRICT" blocks deleting a user who still has orders
 // (otherwise Sequelize defaults to CASCADE and the order history would be wiped).
-User.hasMany(Order, { foreignKey: "userId", onDelete: "RESTRICT" });
-Order.belongsTo(User, { foreignKey: "userId", as: "user", onDelete: "RESTRICT" });
+User.hasMany(Order, { foreignKey: "customerId", onDelete: "RESTRICT" });
+Order.belongsTo(User, { foreignKey: "customerId", as: "customer", onDelete: "RESTRICT" });
 
 // One order has many items (the old "items" array).
 // onDelete: "CASCADE" removes the items when their order is deleted.

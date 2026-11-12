@@ -16,11 +16,13 @@ const ProductAttribute = sequelize.define("ProductAttribute", {
         references: { model: "products", key: "id" } // foreign key -> products.id
     },
     attributeName: {
-        type: DataTypes.STRING,
-        allowNull: false
+        type: DataTypes.STRING(100),    // varchar(100) in the table
+        allowNull: false,
+        validate: { len: [1, 100] }
     },
     attributeValue: {
-        type: DataTypes.STRING
+        type: DataTypes.STRING,
+        allowNull: false
     }
 }, {
     tableName: "product_attributes",

@@ -17,7 +17,10 @@ const RefreshToken = sequelize.define("RefreshToken", {
         unique: true                              // same as Mongoose's "unique: true"
     },
     userId: {
-        type: DataTypes.UUID,                     // must match users.id (char(36))
+        // Plain CHAR(36), not DataTypes.UUID: in MySQL UUID becomes "CHAR(36) BINARY"
+        // with a different collation than users.id, and MySQL refuses a foreign key
+        // between columns with different collations.
+        type: DataTypes.CHAR(36),
         allowNull: false,
         references: { model: "users", key: "id" } // same as Mongoose's "ref: 'User'"
     },

@@ -67,4 +67,13 @@ User.prototype.comparePassword = async function (candidatePassword) {
     return bcrypt.compare(candidatePassword, this.password);
 };
 
+// toJSON() is what res.json(user) uses to turn the user into JSON.
+// We drop the password hash here, so it never gets into an API response,
+// even if a controller forgets to remove it.
+// (Like Mongoose's "toJSON: { transform }" schema option.)
+User.prototype.toJSON = function () {
+    const { password: _password, ...safeUser } = this.get({ plain: true });
+    return safeUser;
+};
+
 module.exports = User;

@@ -21,16 +21,11 @@ const createOrder = async (req, res) => {
     }
 
     try {
-        // A transaction makes all the queries inside it succeed or fail together.
-        // If anything throws, every stock change is rolled back automatically,
-        // so we no longer need to give the stock back by hand.
         const order = await sequelize.transaction(async (transaction) => {
             const orderItems = [];
             let total = 0;
 
             for (const { productId, quantity } of items) {
-                // LOCK.UPDATE (SELECT ... FOR UPDATE) stops other orders from changing
-                // this product's stock until our transaction is finished.
                 const product = await Product.findByPk(productId, {
                     transaction,
                     lock: transaction.LOCK.UPDATE,
@@ -58,7 +53,7 @@ const createOrder = async (req, res) => {
             // Creates the order and all its OrderItems rows in one call
             return Order.create(
                 {
-                    userId: req.user.id,
+                    customerId: req.user.id,
                     items: orderItems,
                     total: Math.round(total * 100) / 100,
                 },
@@ -76,7 +71,7 @@ const createOrder = async (req, res) => {
 };
 
 const getOrders = async (req, res) => {
-    const where = req.user.role === "admin" ? {} : { userId: req.user.id };
+    const where = req.user.role === "admin" ? {} : { customerId: req.user.id };
     const orders = await Order.findAll({ where, ...WITH_ITEMS });
     return res.json(orders);
 };
@@ -88,7 +83,7 @@ const getOrderById = async (req, res) => {
         return res.status(404).json({ message: "Order not found" });
     }
 
-    if (req.user.role !== "admin" && order.userId !== req.user.id) {
+    if (req.user.role !== "admin" && order.customerId !== req.user.id) {
         return res.status(403).json({ message: "Access denied" });
     }
 
